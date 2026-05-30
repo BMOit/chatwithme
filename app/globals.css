@@ -1,8 +1,17 @@
 @import "tailwindcss";
 
+/* ── Colour tokens ── */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --chat-bg:        #212121;
+  --chat-surface:   #2f2f2f;
+  --chat-border:    #3f3f3f;
+  --chat-input-bg:  #2f2f2f;
+  --user-bubble:    #10a37f;   /* ChatGPT green accent */
+  --asst-bubble:    #2f2f2f;
+  --text-primary:   #ececec;
+  --text-secondary: #9ca3af;
+  --background: #212121;
+  --foreground: #ececec;
 }
 
 @theme inline {
@@ -12,15 +21,50 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+body {
+  background: var(--chat-bg);
+  color: var(--text-primary);
+  font-family: var(--font-geist-sans, Arial, Helvetica, sans-serif);
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* ── Slim scrollbar ── */
+::-webkit-scrollbar        { width: 6px; }
+::-webkit-scrollbar-track  { background: transparent; }
+::-webkit-scrollbar-thumb  { background: #4b5563; border-radius: 9999px; }
+::-webkit-scrollbar-thumb:hover { background: #6b7280; }
+
+/* ── Typing indicator bounce ── */
+@keyframes dot-bounce {
+  0%, 80%, 100% { transform: translateY(0);    opacity: 0.4; }
+  40%            { transform: translateY(-6px); opacity: 1;   }
 }
+
+.dot-bounce span {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 9999px;
+  background: var(--text-secondary);
+  animation: dot-bounce 1.2s ease-in-out infinite;
+}
+.dot-bounce span:nth-child(2) { animation-delay: 0.2s; }
+.dot-bounce span:nth-child(3) { animation-delay: 0.4s; }
+
+/* ── Code blocks inside assistant messages ── */
+.message-content pre {
+  background: #1a1a1a;
+  border: 1px solid var(--chat-border);
+  border-radius: 8px;
+  padding: 12px 16px;
+  overflow-x: auto;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  margin: 8px 0;
+}
+.message-content code:not(pre code) {
+  background: #1a1a1a;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.85em;
+}
+
