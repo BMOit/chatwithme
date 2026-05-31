@@ -8,7 +8,7 @@ import type { ScoredPineconeRecord } from "@pinecone-database/pinecone";
 const TOP_K = 5;
 
 /** Minimum similarity score (cosine) to include a result as context. */
-const SCORE_THRESHOLD = 0.75;
+const SCORE_THRESHOLD = 0.65;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -35,7 +35,9 @@ export async function searchMemories(
   query: string,
   sessionId?: string
 ): Promise<string> {
-  console.log(`[memory] searchMemories called for query: "${query}", sessionId: ${sessionId}`);
+  console.log(`[memory] >>> searchMemories called <<<`);
+  console.log(`[memory] Query: "${query}"`);
+  console.log(`[memory] Session ID (Retrieval): "${sessionId}"`);
   try {
     const embedding = await generateEmbedding(query);
     console.log(`[memory] Generated embedding vector for query (length: ${embedding.length})`);
@@ -53,15 +55,30 @@ export async function searchMemories(
           includeMetadata: true,
         };
 
+    console.log(`[memory] Querying Pinecone index... Options:`, JSON.stringify({ ...queryOptions, vector: `[Vector length ${embedding.length}]` }, null, 2));
     const results = await memoryIndex.query(queryOptions);
     console.log(`[memory] Pinecone query returned ${results.matches?.length || 0} matches`);
+
+    if (results.matches && results.matches.length > 0) {
+      results.matches.forEach((match, index) => {
+        const meta = match.metadata;
+        console.log(`[memory] Match #${index + 1}:`);
+        console.log(`  ID: ${match.id}`);
+        console.log(`  Score: ${match.score}`);
+        console.log(`  Role: ${meta?.role}`);
+        console.log(`  Session ID: ${meta?.sessionId}`);
+        console.log(`  Content: "${meta?.content}"`);
+      });
+    }
 
     const relevant = (
       results.matches as ScoredPineconeRecord<MemoryMetadata>[]
     ).filter((match) => {
       const isRelevant = match.score !== undefined && match.score >= SCORE_THRESHOLD && match.metadata;
       if (!isRelevant) {
-        console.log(`[memory] Discarding match (score: ${match.score}, ID: ${match.id})`);
+        console.log(`[memory] Discarding match ${match.id} (Score ${match.score} < Threshold ${SCORE_THRESHOLD} or missing metadata)`);
+      } else {
+        console.log(`[memory] Retaining match ${match.id} (Score ${match.score} >= Threshold ${SCORE_THRESHOLD})`);
       }
       return isRelevant;
     });
@@ -97,7 +114,10 @@ export async function saveMemory(
   assistantMessage: string,
   sessionId = "default"
 ): Promise<void> {
-  console.log(`[memory] saveMemory called (sessionId: ${sessionId})`);
+  console.log(`[memory] >>> saveMemory called <<<`);
+  console.log(`[memory] User Message: "${userMessage}"`);
+  console.log(`[memory] Assistant Message: "${assistantMessage}"`);
+  console.log(`[memory] Session ID (Save): "${sessionId}"`);
   try {
     const now = Date.now();
 
@@ -129,6 +149,10 @@ export async function saveMemory(
         sessionId,
       } satisfies MemoryMetadata,
     };
+
+    console.log(`[memory] Upserting to Pinecone for session: "${sessionId}"`);
+    console.log(`  User Record ID: ${userRecord.id}`);
+    console.log(`  Assistant Record ID: ${assistantRecord.id}`);
 
     await memoryIndex.upsert({ records: [userRecord, assistantRecord] });
     console.log(`[memory] Pinecone upsert successful for IDs: ${userRecord.id}, ${assistantRecord.id}`);

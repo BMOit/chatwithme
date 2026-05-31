@@ -24,12 +24,18 @@ export function getGenerativeModel(modelName = "gemini-3.5-flash"): GenerativeMo
 export async function generateEmbedding(text: string): Promise<number[]> {
   try {
     const model = genAI.getGenerativeModel({ model: "gemini-embedding-2" });
-    const result = await model.embedContent(text);
+    const result = await model.embedContent({
+      content: { parts: [{ text }] },
+      outputDimensionality: 1024,
+    });
     return result.embedding.values;
   } catch (e: any) {
     console.warn("gemini-embedding-2 failed, trying fallback...", e);
     const fallback = genAI.getGenerativeModel({ model: "gemini-embedding-001" });
-    const result = await fallback.embedContent(text);
+    const result = await fallback.embedContent({
+      content: { parts: [{ text }] },
+      outputDimensionality: 1024,
+    });
     return result.embedding.values;
   }
 }

@@ -63,12 +63,19 @@ export async function POST(
 
   // ── 2. Retrieve relevant memories from Pinecone ───────────────────────────
   const memoryContext = await searchMemories(trimmedMessage, sessionId);
+  console.log(`[api/chat] memoryContext length: ${memoryContext.length} chars`);
+  if (memoryContext) {
+    console.log(`[api/chat] Memory context injected:\n${memoryContext}`);
+  } else {
+    console.log(`[api/chat] No memory context — running without history.`);
+  }
 
   // ── 3. Build system prompt & generate Gemini response ─────────────────────
   let reply: string;
 
   try {
     const systemPrompt = buildSystemPrompt(memoryContext);
+    console.log(`[api/chat] System prompt sent to Gemini (first 300 chars):\n${systemPrompt.slice(0, 300)}...`);
     reply = await generateChatResponse(trimmedMessage, systemPrompt);
   } catch (error: any) {
     console.error("[api/chat] Gemini generation failed:", error);

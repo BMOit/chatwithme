@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useId } from "react";
+import { useState, useCallback, useEffect } from "react";
 import ChatWindow from "@/components/chat-window";
 import ChatInput from "@/components/chat-input";
 import { type Message } from "@/components/message";
@@ -25,7 +25,16 @@ export default function Home() {
 
   // Stable session ID for the lifetime of this page — scopes Pinecone memory
   // to this browser tab without requiring auth.
-  const sessionId = useId();
+  const [sessionId, setSessionId] = useState("");
+
+  useEffect(() => {
+    let id = sessionStorage.getItem("chat_session_id");
+    if (!id) {
+      id = crypto.randomUUID();
+      sessionStorage.setItem("chat_session_id", id);
+    }
+    setSessionId(id);
+  }, []);
 
   const handleSend = useCallback(async () => {
     const text = input.trim();
