@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect, type KeyboardEvent, type FormEvent } from "react";
+import { useRef, useEffect, type KeyboardEvent } from "react";
 
 interface ChatInputProps {
   value: string;
@@ -25,27 +25,25 @@ export default function ChatInput({
     el.style.height = `${Math.min(el.scrollHeight, 180)}px`;
   }, [value]);
 
+  const canSend = !disabled && value.trim().length > 0;
+
   function handleKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      if (!disabled && value.trim()) onSend();
+      if (canSend) onSend();
     }
   }
 
-  function handleSubmit(e: FormEvent) {
-    e.preventDefault();
-    if (!disabled && value.trim()) onSend();
+  function handleSendClick() {
+    if (canSend) onSend();
   }
-
-  const canSend = !disabled && value.trim().length > 0;
 
   return (
     <div
       className="w-full px-4 pb-6 pt-3"
       style={{ background: "var(--chat-bg)" }}
     >
-      <form
-        onSubmit={handleSubmit}
+      <div
         className="relative mx-auto max-w-3xl flex items-end gap-2 rounded-2xl px-4 py-3 shadow-lg"
         style={{
           background: "var(--chat-input-bg)",
@@ -69,7 +67,8 @@ export default function ChatInput({
 
         {/* Send button */}
         <button
-          type="submit"
+          type="button"
+          onClick={handleSendClick}
           id="chat-send-button"
           disabled={!canSend}
           aria-label="Send message"
@@ -88,7 +87,7 @@ export default function ChatInput({
             <path d="M3.478 2.405a.75.75 0 00-.926.94l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.405z" />
           </svg>
         </button>
-      </form>
+      </div>
 
       <p className="mt-2 text-center text-xs text-zinc-600">
         Press <kbd className="font-mono">Enter</kbd> to send ·{" "}

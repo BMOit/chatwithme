@@ -35,8 +35,10 @@ export async function searchMemories(
   query: string,
   sessionId?: string
 ): Promise<string> {
+  console.log(`[memory] searchMemories called for query: "${query}", sessionId: ${sessionId}`);
   try {
     const embedding = await generateEmbedding(query);
+    console.log(`[memory] Generated embedding vector for query (length: ${embedding.length})`);
 
     const queryOptions = sessionId
       ? {
@@ -52,15 +54,19 @@ export async function searchMemories(
         };
 
     const results = await memoryIndex.query(queryOptions);
+    console.log(`[memory] Pinecone query returned ${results.matches?.length || 0} matches`);
 
     const relevant = (
       results.matches as ScoredPineconeRecord<MemoryMetadata>[]
-    ).filter(
-      (match) =>
-        match.score !== undefined &&
-        match.score >= SCORE_THRESHOLD &&
-        match.metadata
-    );
+    ).filter((match) => {
+      const isRelevant = match.score !== undefined && match.score >= SCORE_THRESHOLD && match.metadata;
+      if (!isRelevant) {
+        console.log(`[memory] Discarding match (score: ${match.score}, ID: ${match.id})`);
+      }
+      return isRelevant;
+    });
+
+    console.log(`[memory] Filtered down to ${relevant.length} relevant memories >= threshold (${SCORE_THRESHOLD})`);
 
     if (relevant.length === 0) return "";
 
@@ -70,10 +76,11 @@ export async function searchMemories(
         return `${role === "user" ? "User" : "Assistant"}: ${content}`;
       })
       .join("\n");
+      
+    console.log(`[memory] Constructed system prompt context block: \n${formatted}`);
 
     return `Relevant conversation history:\n${formatted}`;
   } catch (error) {
-    // Memory retrieval failure is non-fatal — continue without context.
     console.error("[memory] searchMemories failed:", error);
     return "";
   }
@@ -84,27 +91,22 @@ export async function searchMemories(
 /**
  * Embeds both the user message and the assistant reply, then upserts them
  * into Pinecone as two separate records in a single batch call.
- *
- * Records are keyed by a timestamp-based ID, so re-runs never overwrite
- * existing memories.
- *
- * @param userMessage       - The raw user message text.
- * @param assistantMessage  - The assistant's reply text.
- * @param sessionId         - Optional session identifier stored as metadata.
  */
 export async function saveMemory(
   userMessage: string,
   assistantMessage: string,
   sessionId = "default"
 ): Promise<void> {
+  console.log(`[memory] saveMemory called (sessionId: ${sessionId})`);
   try {
     const now = Date.now();
 
-    // Embed both messages in parallel to minimise latency.
     const [userEmbedding, assistantEmbedding] = await Promise.all([
       generateEmbedding(userMessage),
       generateEmbedding(assistantMessage),
     ]);
+    
+    console.log(`[memory] Generated embeddings for both messages.`);
 
     const userRecord = {
       id: `mem-user-${now}`,
@@ -129,8 +131,8 @@ export async function saveMemory(
     };
 
     await memoryIndex.upsert({ records: [userRecord, assistantRecord] });
+    console.log(`[memory] Pinecone upsert successful for IDs: ${userRecord.id}, ${assistantRecord.id}`);
   } catch (error) {
-    // Memory persistence failure is non-fatal — the user still gets a reply.
     console.error("[memory] saveMemory failed:", error);
   }
 }

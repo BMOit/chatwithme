@@ -70,20 +70,40 @@ export async function POST(
   try {
     const systemPrompt = buildSystemPrompt(memoryContext);
     reply = await generateChatResponse(trimmedMessage, systemPrompt);
-  } catch (error) {
+  } catch (error: any) {
     console.error("[api/chat] Gemini generation failed:", error);
+    
+    // Default fallback message
+    let errorMessage = "Failed to generate a response. Please try again.";
+    
+    // Check if it's a structural Google API error and extract details
+    if (error?.message) {
+      if (error.message.includes("429") || error.message.toLowerCase().includes("quota")) {
+        errorMessage = "We're experiencing high demand right now (quota exceeded). Please try again in a few minutes, or upgrade your plan.";
+      } else if (error.message.includes("404")) {
+        errorMessage = "The selected AI model is currently unavailable or deprecated. Please contact support.";
+      } else {
+        errorMessage = "Our AI system is temporarily facing issues: " + (error.message.substring(0, 50) + "...");
+      }
+    }
+
     return Response.json(
-      { error: "Failed to generate a response. Please try again." } satisfies ChatErrorResponse,
-      { status: 502 }
+      { error: errorMessage } satisfies ChatErrorResponse,
+      { status: error?.status === 429 ? 429 : 502 }
     );
   }
 
-  // ── 4. Persist this exchange to Pinecone (fire-and-forget) ────────────────
-  // We do NOT await here — memory saving is best-effort and should never
-  // block or fail the response the user is waiting for.
-  saveMemory(trimmedMessage, reply, sessionId ?? "default").catch((err) => {
-    console.error("[api/chat] saveMemory failed silently:", err);
-  });
+  // ── 4. Persist this exchange to Pinecone ────────────────
+  // We MUST await here because in Next.js Serverless/Edge functions,
+  // returning the HTTP response instantly tears down the execution context,
+  // killing any pending background promises.
+  try {
+    console.log("[api/chat] Awaiting saveMemory...");
+    await saveMemory(trimmedMessage, reply, sessionId ?? "default");
+    console.log("[api/chat] Successfully saved memory.");
+  } catch (err) {
+    console.error("[api/chat] saveMemory failed:", err);
+  }
 
   // ── 5. Return reply ────────────────────────────────────────────────────────
   return Response.json(
